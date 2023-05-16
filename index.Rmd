@@ -1,0 +1,387 @@
+---
+title: "Hypothesis Testing"
+subtitle: "Evaluate Microclimates in two locations"
+author: "Michael C. Rubin"
+date: "10/26/2018"
+output: html_document
+---
+
+
+In this document, we will import some meteorological data set with rain data from 5 different points and analyze it for statistically significant differences in rain pattern between the points. Note that the stations are close-by points with few KM in distance to each other. 
+
+
+```{r,include=FALSE}
+
+#import Libraries
+library(ggplot2)
+library(tidyverse)
+library(data.table)
+library(geosphere)
+library(Metrics)
+library(rmutil)
+library(pathmapping)
+library(lubridate)
+library(knitr)
+library(here)
+
+
+#define some options for the document
+options(digits=4)
+
+
+#get current path, define file name and import CSV
+setwd(here())
+my_dir<- here("data")
+
+#importing the first file
+filename<-"InterpolationA_Rain.csv"
+pathname<-paste(my_dir, filename, sep = "/")
+df1 <- read.table(pathname, 
+                 header = TRUE,
+                 sep = ";", dec="," )
+#importing the second file
+filename<-"InterpolationA_RainMA7.csv"
+pathname<-paste(my_dir, filename, sep = "/")
+df2 <- read.table(pathname, 
+                 header = TRUE,
+                 sep = ";", dec="," )
+
+
+#*************************************************************************************
+#**********THIS WHOLE SUB-SECTION IS ONLY TO GET THE LOCATIONS AND DISTANCES **********
+#*************************************************************************************
+
+#Transpose the df1 from a row to a colum matrix, then add the correct column headers and delete them in the data rows 
+
+dft = as.data.frame(x = t(sapply(subset(df1, select = -HAS.DATA ), as.numeric)), stringsAsFactors = FALSE)
+timestamps<-df1[,1]
+colnames(dft) <- timestamps
+dft <- dft[-1, ]
+
+#castrating df1 from coordinates
+df1<-df1[-1, ]
+df1<-df1[-1, ]
+df2<-df2[-1, ]
+df2<-df2[-1, ]
+
+#dropping all lines with na
+df1<-df1 %>% drop_na()
+df2<-df2 %>% drop_na()
+
+stations<-colnames(df1)
+stations <- stations[(3:length(stations))]
+dft<-cbind(index=stations, dft)
+
+
+#Extracting the coordinates of Point 0, i.e. the point of interest
+Point_0x<-dft[(row.names(dft) %like% 'erification'),'x']
+Point_0y<-dft[(row.names(dft) %like% 'erification'),'y']
+Point_0x_show<-round(Point_0x,digits = 1)
+Point_0y_show<-round(Point_0y,digits = 1)
+
+#GIVING BIRTH TO THE DATA DF FROM MY MOTHER DATA FRAME
+df_data <-dft[!(row.names(dft) %like% 'erification'),]
+
+#adding the columns for the Distances to Point 0
+df_data<- add_column(df_data, distanceEuclidian = 0, .after = 3) #adding column for Euclidian Distance
+df_data<- add_column(df_data, distanceGeo = 0, .after = 3) #add column for Geographical distance
+
+#calculating the true geographical Distance using the Harversine function(note: there are some differences to Google Earth, but might be unimportant)
+Point_0x_vect<-c(rep(Point_0x, length(df_data$x))) #creating a vector with same lengh of n but all coordinates Point 0
+Point_0y_vect<-c(rep(Point_0y, length(df_data$y)))
+df_data$distanceGeo <- distGeo(cbind(Point_0x_vect, Point_0y_vect),cbind(df_data$x, df_data$y),a=6378137)
+
+#calculating Euclidian, which is not accurate, just in case you dont have the library above
+df_data$distanceEuclidian<-sqrt((Point_0x-df_data$x)^2+(Point_0y-df_data$y)^2)*100000
+
+#Creating some indexes for more convenient slicing & Managing #####TAKE CARE MAYBE THIS MUST BE FOR STATS NOT FOR DATA
+len_df_data<-length(colnames(df_data)) #is total length of data frame
+metadata<-c('index', 'x', 'y', 'distanceGeo', 'distanceEuclidian', 'MAE', 'RMSE', 'Averages')
+z<-(!(colnames(df_data)) %in% metadata)==TRUE#just helper
+n<-length(z[z==TRUE]) # is the lenght of timestamps for df
+ind_df_data=len_df_data-n+1 #is the starting index of the data in the df
+
+
+#CALCULATING THE TOTAL INTERPOLATED AREA AND OTHER VARIBALES FOR DESCRIBTION
+#preparing coordinate map
+B = (matrix(c(as.numeric(df_data$x),as.numeric(df_data$y)), nrow=4,ncol=2))
+B=B*-100000
+#calculating area in HA
+area=round(shoelace(B)/10000, digits = 0)
+
+#calculate distance
+av_dist = round(mean(df_data$distanceGeo), digits = 0)
+x_dist<-(max(df_data$x)-min(df_data$x))*100000
+y_dist<-(max(df_data$y)-min(df_data$y))*100000
+
+#calculate min and max date
+a<-colnames(df_data)
+min_date = a[len_df_data]
+max_date = a[ind_df_data]
+
+#CREATING MAP PLOT WITH ALL STATIONS AND POINT 0
+mapplot<-ggplot(df_data, aes(x=x, y=y)) +
+  geom_point(size=2, shape=4, colour='blue')+
+  geom_point(aes(x=Point_0x, y=Point_0y), size=4, shape=4, colour='red')+
+  theme_light()+
+  labs(title=paste('Area=', round(area,digits = 0),'HA', sep=""),
+        x = paste('Distance=', round(mean(x_dist), digits = 0),'m', sep=""),
+       y = paste('Distance=', round(mean(x_dist), digits = 0),'m', sep=""))
+#Saving this plot
+ggsave('configmap.png', plot = mapplot, width = 3, height = 2.8)
+
+
+```
+
+
+
+* Variable:               RAIN Hourly Sum in [mm]
+
+* Location Approx:        Lat: `r Point_0x_show` / Long: `r Point_0y_show`
+
+* Total Area:             `r area`HA
+
+* Starting Date:          `r min_date`
+
+* End Date:               `r min_date`
+
+* No of observations:     `r n` (hourly data)
+
+Here is a map-view of the station setting on the Euclidian Grid:
+
+```{r fig.width=3, fig.height=3,echo=FALSE}
+#this displays the image of the grid
+library(png)
+library(grid)
+img <- readPNG("configmap.png")
+ grid.raster(img)
+```
+
+We have the same data set in two different flavours:
+
+* hourly rain sums, just as they are measured
+
+* hourly rain sums, on a 7 hour moving average
+
+We have the moving averaged sums because in that way, we can correct for small differences in recodring time, which would distort the errors if analysed on an individual data point basis.  
+
+
+Now let's start with our analysis. let's sum up the rain values for individual measures for the period of January through February 2020:
+
+```{r,echo=FALSE}
+st<-5848
+en<-4414
+
+#iris %>% head() %>% summary() is equivalent to summary(head(iris))
+
+#print(paste('Start Date: ', df1$TIMESTAMP[st]))
+
+#print(paste('End Date: ', df1$TIMESTAMP[en])) 
+a<-substr(df1$TIMESTAMP[st], 1, 10)
+b<-substr(df1$TIMESTAMP[en], 1, 10)
+knitr::kable(colSums(df1[st:en,3:7]), format="markdown", col.names = paste('Rain Sum:', a, 'to',b, sep = " "))
+
+#print(paste('End 33Date: ', df1$TIMESTAMP[en])) 
+a<-substr(df2$Timestamp[st], 1, 10)
+b<-substr(df2$Timestamp[en], 1, 10)
+knitr::kable(colSums(df2[st:en,3:7]), format="markdown", col.names = paste('Rain Sum:', a, 'to',b, sep = " "))
+
+# library(dplyr)
+# dt1 %>%group_by(group, year) %>% 
+#   summarise(amt = sum(amt)) %>%
+#   filter(sum(amt) > 100)
+
+
+```
+
+Wow. Quite some differences. Now we want to know if we have a true difference between the points. That is, we want to understand if the differences arrises due to chance or if there is a systematic Difference. It is quite obvious that in the case of Station.1_00203F6D, there is a large difference (in fact, it is so large that we doubt the measurement). But the test between the other 4 stations seems to be quite interesting.
+
+Before we go ahead, we will get some describtive Stats:
+
+```{r,echo=FALSE}
+
+Sum<- as.numeric(colSums(df1[st:en,3:7]))
+Mean<-as.numeric(colMeans(df1[st:en,3:7]))
+Variance<-sapply(df1[st:en,3:7], var)
+
+sta<-rbind(Sum,Mean,Variance)
+colnames(sta)<- colnames(df1[3:7])
+
+#print(paste('End Date: ', df1$TIMESTAMP[en])) 
+sta %>%kable(format="markdown")
+
+```
+
+We need to note here that for Rain Data, we expect the different location to have a spatial and temporal autocorrelation. This means that the individual sample points are not independent, which is an important assumption of parametric hypothesis testing. Nevertheless, many meteorological researches found that simple tests like the T-Test do not perform wors than special spatial tests. Therefore, we run through a series of different Hypothesis tests to evaluate our main hypothesis.
+
+Here we go with the Setup:
+
+* Variable: X = Precipitaiton Sum over a defined period of time
+
+* We ignore the Station.1_00203F6D because we don't trust the measurements
+
+* Research Hypothesis:    We claim that there are different microclimates inside the area
+
+* Null Hypothesis:        Hypothesize that there is no difference
+
+* HA: X1≠X2≠X3≠X4
+
+* H0: X1=X2=X3=X4
+
+We start with a Two-Sample T-Test testing the largest against the smallest on the data set with the individual measures, Station.3_01204052 vs Station.2_0120593F.
+We have the following Test Statistic:
+
+$$T =\frac{(\bar{X_2}-\bar{X_1})}{s_{p}*\sqrt(\frac{1}{n_{1}}+\frac{1}{n_{2}})}$$ 
+Where:
+
+$$s_{p}^{2} =\frac{(n_{1}-1)s_{1}^{2}+(n_{2}-1)s_{2}^{2}}{n_{1}+n_{2}-2}$$
+And this is T-Distributed with degrees of Freedom:
+$$T \sim t(df=n_{1}+n_{2}-2)$$
+The Confidence Interval is calculated as follows:
+$$CI = \delta X\pm t*SE_{1,2}=\delta X\pm t* \sqrt(\frac{s_{p}}{n_{1}}+\frac{s_{p}}{n_{2}})$$
+
+Here we go:
+```{r}
+
+#getting all the Parameters on board
+data_1<-df1$Station.3_01204052[st:en]
+data_2<-df1$Station.2_0120593F[st:en]
+
+mean_1<-mean(data_1)
+mean_2<-mean(data_2)
+
+var_1<-var(data_1)
+var_2<-var(data_2)
+
+n_1<-length(data_1)
+n_2<-length(data_2)
+
+#Test Definition: 2-Tail Test and Level of Significance 0,05
+test_tails<-2 #leans that we test whether it's larger OR smaller
+sign_lev<-0.05
+
+#calculating pooled Variance + Standard deviation
+var_p<-((n_1-1)*var_1+(n_2-1)*var_2)/(n_1+n_2-2)
+SD_p<-sqrt(var_p)
+
+#Calculate Test Statistic T
+Test_Stat<-(mean_1-mean_2)/(SD_p*sqrt((1/n_1)+(1/n_2)))
+df<-n_1+n_2-2
+
+#Comparing against critical Value
+P_critical<-1-(sign_lev/test_tails)
+critical_value <- qt(P_critical, df, lower.tail = TRUE)
+P_data<-pt(abs(Test_Stat), df, lower.tail = TRUE)
+p_value<-(1-P_data)*test_tails
+
+decision<- ifelse(p_value<sign_lev,"Null Hypotesis Rejected","Null Hypothesis Not Rejected")
+
+#confidence interval estimation
+treat_eff <- mean_1-mean_2
+St_error<-sqrt((var_p/n_1)+(var_p/n_2))
+z_value<-qt(sign_lev/test_tails,df, lower.tail = F)
+ci_low<-treat_eff-z_value*St_error
+ci_up<-treat_eff+z_value*St_error
+
+```
+
+
+```{r, echo=FALSE}
+#HERE IS JUST THE PRINTING STATEMENT. I DO THIS SEPARATELY SO I CAN SUPPRESS IN IN THE PRINT
+#vectors for table
+a<-c('Sample Means', round(mean_1, digits = 4), round(mean_2, digits=4))
+b<-c('Score on T-Axis',round(critical_value,digits = 4),  round(Test_Stat, digits = 4))
+c<-c('Probability',round(P_critical,digits = 4),  round(P_data,digits = 4))
+d<-c('α/p Value (2-Tail Prob)',sign_lev,  round(p_value, digits = 4))
+e<-c('Decision',decision,paste(sign_lev,' significance level'))
+f<-c(paste(1-sign_lev,' Confidence Interval'),round(ci_low,digits = 4),round(ci_up,digits = 4))
+
+#Printing the Result Table
+results<-rbind(a,b,c,d,e,f)
+
+results %>%kable(format="markdown", col.names=c('Result T-Test', 'Critical Level/Data 1', 'Data/Data 2'))
+
+t.test(data_1, data_2, var.equal = TRUE)
+
+```
+
+
+So this is a very clear case. The differences we observe from one mean to the other might arrise purely by chance. We cannot claim that there is a difference in microclimates.
+However, we ignored something important. Rainfall on such a small area is not independent. If it rains on one place, it is very likely to rain on the other place as well. this violates a basic assumption of parametric statistical tests, i.e. that the samples are independent from each other.
+It is not so easy to get a fix for this, but we start with a workaround. Anyway, we are not too much interested in the total rain sum over 2 months, but more in the invidiual rain fall events. That is, if one field received 300mm rain at one day per month, whereas the other obtains an equal rainfall over several days, this is a very important information, which the above test doesn't capture. so what we do next is to perform a Paired Two-Sample T-Test. This test assumes that the samples are very much dependent, so that they always appear in pairs. This test is typicalls used in medical treatments to test before-after differences. but there is no problem in using this test also here, considering each hour a 'pair' with one sample being station A, the other being staiton B. We measure the overall difference.
+
+$$w_{i} =x_{i}-y_{i}$$ 
+
+
+$$T =\frac{(\bar{W}-\mu_{0})}{s_{w}*\sqrt(n)}$$ 
+
+Where:
+
+$$s_{w}^{2} =\sum_{i+1}^{n}{}\frac{(w_{i}-\bar{w_i})^{2}}{n-1}$$
+
+And this is T-Distributed with degrees of Freedom:
+$$T \sim t(df=n-1)$$
+
+Here we go:
+
+````{r}
+#DOING THE PAIRED SAMPLE T TEST INVIVIDUALLY
+#getting all the Parameters on board
+data_1<-df1$Station.3_01204052[st:en]
+data_2<-df1$Station.2_0120593F[st:en]
+
+delta_vec<-data_1-data_2
+mean_delta<-mean(delta_vec)
+H_0 <- 0 #note: we test agains the Hypothesis that the diff is zero
+
+var_w<-var(delta_vec)
+SD_w<-sqrt(var_w)
+n<-length(delta_vec)
+
+#Test Definition: 2-Tail for dependent sample data and Level of Significance 0,05
+test_tails<-2 #leans that we test whether it's larger OR smaller
+sign_lev<-0.05
+
+
+#Calculate Test Statistic T
+Test_Stat<-(mean_delta-H_0)/(SD_w/sqrt(n))
+df<-n-1
+
+#Comparing against critical Value
+P_critical<-1-(sign_lev/test_tails)
+critical_value <- qt(P_critical, df, lower.tail = TRUE)
+P_data<-pt(abs(Test_Stat), df, lower.tail = TRUE)
+p_value<-(1-P_data)*test_tails
+
+decision<- ifelse(p_value<sign_lev,"Null Hypotesis Rejected","Null Hypothesis Not Rejected")
+
+#confidence interval estimation
+treat_eff <- mean_delta
+St_error<-sqrt(var_w/n)
+z_value<-qt(sign_lev/test_tails,df, lower.tail = F)
+ci_low<-treat_eff-z_value*St_error
+ci_up<-treat_eff+z_value*St_error
+
+
+```
+
+```{r, echo=FALSE}
+#HERE IS JUST THE PRINTING STATEMENT. I DO THIS SEPARATELY SO I CAN SUPPRESS IN IN THE PRINT
+#vectors for table
+a<-c('Mean Difference', round(0, digits = 4), round(mean_delta, digits=4))
+b<-c('Score on T-Axis',round(critical_value,digits = 4),  round(Test_Stat, digits = 4))
+c<-c('Probability',round(P_critical,digits = 4),  round(P_data,digits = 4))
+d<-c('α/p Value (2-Tail Prob)',sign_lev,  round(p_value, digits = 4))
+e<-c('Decision',decision,paste(sign_lev,' significance level'))
+f<-c(paste(1-sign_lev,' Confidence Interval'),round(ci_low,digits = 4),round(ci_up,digits = 4))
+
+#Printing the Result Table
+results<-rbind(a,b,c,d,e,f)
+
+results %>%kable(format="markdown", col.names=c('Result T-Test', 'Critical Level/Data 1', 'Data/Data 2'))
+
+r=t.test(data_1, data_2, var.equal = TRUE, paired = TRUE)
+
+```
+
+
