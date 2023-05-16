@@ -4,6 +4,10 @@
 ## Introduction
 This document provides an analysis of meteorological data sets containing rainfall measurements from five different points. The goal is to determine if there are statistically significant differences in the rain patterns between these points. The stations are located close to each other, with a few kilometers of distance between them.
 
+Access here:
+[https://michaelcrubin.github.io/hipothesis_testing_climate](https://michaelcrubin.github.io/hipothesis_testing_climate)
+
+
 ## Libraries Used
 The following libraries are imported in the code:
 - ggplot2
