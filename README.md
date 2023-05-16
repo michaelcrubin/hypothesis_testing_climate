@@ -15,6 +15,7 @@ This document provides an analysis of meteorological data sets containing rainfa
 [Agronomic Spraying Climate](https://michaelcrubin.github.io/documentations/spray_climate.html){target="_blank"}\
 
 
+
 ## Libraries Used
 The following libraries are imported in the code:
 - ggplot2
