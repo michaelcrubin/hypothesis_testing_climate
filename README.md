@@ -6,13 +6,13 @@ This document provides an analysis of meteorological data sets containing rainfa
 
 ## Documentation Access
 
-### This Project:\
-[Hypothesis Testing Climate](https://michaelcrubin.github.io/documentations/hypothesis_testing_climate.html){:target="_blank"}\
+### This Project:
+[Hypothesis Testing Climate](https://michaelcrubin.github.io/documentations/hypothesis_testing_climate.html){:target="_blank"}
 
-### Other Projects:\
-[Greedy Optimization](https://michaelcrubin.github.io/documentations/greedy_optimization.html){target="_blank"}\
-[Interpolation Study](https://michaelcrubin.github.io/documentations/interpolation_study.html){target="_blank"}\
-[Agronomic Spraying Climate](https://michaelcrubin.github.io/documentations/spray_climate.html){target="_blank"}\
+### Other Projects:
+[Greedy Optimization](https://michaelcrubin.github.io/documentations/greedy_optimization.html)
+[Interpolation Study](https://michaelcrubin.github.io/documentations/interpolation_study.html)
+[Agronomic Spraying Climate](https://michaelcrubin.github.io/documentations/spray_climate.html)
 
 
 
